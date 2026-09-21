@@ -1,4 +1,4 @@
--- Cold War x INS v7.7, one script. Aimbot + background removed.
+-- Cold War x INS v7.7.2, one script. Boost slider paren fixed.
 loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.min.lua"))()
 local Lib = (function() local e = getfenv() if e and e.INSUI then return e.INSUI end if _G.INSUI then return _G.INSUI end return nil end)()
 assert(Lib and Lib.CreateWindow, "INS failed to load")
@@ -32,7 +32,7 @@ local lastVehCount = -1
 local vehTargets = {}
 local snapChar, snapLast, snapLeft, snapFrom, snapTo, snapGrace = nil, nil, 0, nil, nil, 0
 local CWmsg, CWstance = "ready", "-"
-local function setStatus(m) CWmsg = tostring(m) end
+local function setStatus(m) end
 local function gcApply(anchor, filter, writes)
 local ok, res = pcall(function() return findgc(anchor, filter) end)
 if not ok or not res or #res == 0 then return nil, 0 end
@@ -70,26 +70,22 @@ Lib:SetTheme({ bg = Color3.fromRGB(16, 11, 24), accentA = Color3.fromRGB(190, 16
 Lib:Category("COMBAT")
 local combat = win:Tab("Combat", "sword")
 local weapon = combat:Section("Weapon", "Left", "recoil + spread + flat")
-weapon:Label(function() return "Status: " .. CWmsg end)
 local recoilT = weapon:Toggle("No-Recoil", false, function(v)
-if applyNoRecoil(v) then noRecoil = v setStatus(v and "recoil suppressed" or "recoil restored")
-else noRecoil = false setStatus("recoil flag missing, re-deploy") pcall(function() recoilT:Set(false) end) end
+if applyNoRecoil(v) then noRecoil = v
+else noRecoil = false pcall(function() recoilT:Set(false) end) end
 end)
 local spreadT = weapon:Toggle("No-Spread", false, function(v)
 if v then
-setStatus("scanning weapon (one scan)...")
 local save, n = gcApply("Damage", { Spread = "number", ShotAmount = "number", MuzzleVelocity = "number", Penetration = "number" }, { Spread = 0 })
-if save then spreadSave = save noSpread = true setStatus("spread zeroed")
-else setStatus("weapon table not found, re-equip rifle") pcall(function() spreadT:Set(false) end) end
+if save then spreadSave = save noSpread = true
+else pcall(function() spreadT:Set(false) end) end
 else
-local rd, tot = gcRestore(spreadSave)
+gcRestore(spreadSave)
 noSpread = false
-if tot > 0 and rd >= tot then setStatus("spread restored") else setStatus("spread stays 0 until rejoin / swap") end
 end
 end)
 local flatT = weapon:Toggle("Flatline", false, function(v)
 if v then
-setStatus("scanning velocity (one scan)...")
 local ok, res = pcall(function() return findgc("Damage", { Spread = "number", ShotAmount = "number", MuzzleVelocity = "number", Penetration = "number" }) end)
 if ok and res and #res > 0 then
 local vs = {}
@@ -99,71 +95,58 @@ if mv and mv > 0 then
 local nv = mv * 2.2
 pcall(function() applygc(res, "MuzzleVelocity", nv) end)
 flatSave = { cache = res, orig = mv } flatline = true
-setStatus("flat " .. math.floor(mv + 0.5) .. " -> " .. math.floor(nv + 0.5))
-else setStatus("velocity not found, re-equip rifle") pcall(function() flatT:Set(false) end) end
-else setStatus("weapon table not found, re-equip rifle") pcall(function() flatT:Set(false) end) end
+else pcall(function() flatT:Set(false) end) end
+else pcall(function() flatT:Set(false) end) end
 else
-local done = false
-if flatSave then done = pcall(function() applygc(flatSave.cache, "MuzzleVelocity", flatSave.orig) end) end
+if flatSave then pcall(function() applygc(flatSave.cache, "MuzzleVelocity", flatSave.orig) end) end
 flatline = false
-setStatus(done and "velocity restored" or "velocity stays until rejoin / swap")
 end
 end)
 local penT = weapon:Toggle("Max Pen", false, function(v)
 if v then
-setStatus("scanning pen (one scan)...")
 local save, n = gcApply("Damage", { Spread = "number", ShotAmount = "number", MuzzleVelocity = "number", Penetration = "number" }, { Penetration = 5 })
-if save then penSave = save maxPen = true setStatus("pen at 5 (server decides hits)")
-else setStatus("weapon table not found, re-equip rifle") pcall(function() penT:Set(false) end) end
+if save then penSave = save maxPen = true
+else pcall(function() penT:Set(false) end) end
 else
-local rd, tot = gcRestore(penSave)
+gcRestore(penSave)
 maxPen = false
-if tot > 0 and rd >= tot then setStatus("pen restored") else setStatus("pen stays until rejoin / swap") end
 end
 end)
 local tracerT = weapon:Toggle("Fat Tracers", false, function(v)
 if v then
-setStatus("scanning tracers (one scan)...")
 local save, n = gcApply("MinStudWidth", { MinPixelWidth = "number" }, { MinPixelWidth = 6 })
-if save then tracerSave = save fatTracer = true setStatus("tracers x6 (" .. n .. ")")
-else setStatus("tracer tables not found") pcall(function() tracerT:Set(false) end) end
+if save then tracerSave = save fatTracer = true
+else pcall(function() tracerT:Set(false) end) end
 else
-local rd, tot = gcRestore(tracerSave)
+gcRestore(tracerSave)
 fatTracer = false
-if tot > 0 and rd >= tot then setStatus("tracers restored") else setStatus("tracers stay fat until rejoin") end
 end
 end)
 local steady = combat:Section("Steady", "Right", "suppression + aim move")
 steady:Label(function() return "Stance: " .. CWstance end)
 local suppT = steady:Toggle("No-Suppression", false, function(v)
 noSupp = v
-setStatus(v and "suppression pinned at 0" or "suppression off")
 end)
 local adsT = steady:Toggle("Fast ADS", false, function(v)
 fastADS = v
-setStatus(v and ("ads speed " .. math.floor(adsTarget * 100 + 0.5) .. "%") or "ads speed off")
 end)
-pcall(function() steady:Slider("ADS speed", 100, 5, 75, 100, "%", function(v) adsTarget = math.clamp((tonumber(v) or 100) / 100, 0.75, 1) if fastADS then setStatus("ads speed " .. math.floor(adsTarget * 100 + 0.5) .. "%") end end) end)
+pcall(function() steady:Slider("ADS speed", 100, 5, 75, 100, "%", function(v) adsTarget = math.clamp((tonumber(v) or 100) / 100, 0.75, 1) end) end)
 local sprintT = steady:Toggle("Sprint Aim", false, function(v)
 sprintAim = v
-setStatus(v and "sprint aim on: aim while sprinting" or "sprint aim off")
 end)
 local boostT = steady:Toggle("Sprint Boost", false, function(v)
 sprintBoost = v
-setStatus(v and ("boost " .. math.floor(boostTarget * 100 + 0.5) .. "%, test in open ground") or "boost off")
 end)
-pcall(function() steady:Slider("Boost %", 110, 5, 100, 120, "%", function(v) boostTarget = math.clamp((tonumber(v) or 110) / 100, 1, 1.2) if sprintBoost then setStatus("boost " .. math.floor(boostTarget * 100 + 0.5) .. "%") end end) end)
+pcall(function() steady:Slider("Boost %", 110, 5, 100, 120, "%", function(v) boostTarget = math.clamp((tonumber(v) or 110) / 100, 1, 1.2) end) end)
 local snapT = steady:Toggle("Smooth Snap", false, function(v)
 smoothSnap = v
 if not v then snapChar, snapLast, snapLeft, snapFrom, snapTo, snapGrace = nil, nil, 0, nil, nil, 0 end
-setStatus(v and "snap smoothing on (visual only)" or "snap smoothing off")
 end)
 steady:Button("Reset all", function()
 recoilT:Set(false) spreadT:Set(false) flatT:Set(false) penT:Set(false) tracerT:Set(false)
 suppT:Set(false) adsT:Set(false) sprintT:Set(false) boostT:Set(false) snapT:Set(false)
 if vehT then vehT:Set(false) end
 if plrT then plrT:Set(false) end
-setStatus("reset done")
 end)
 task.spawn(function()
 while _G.CWGen == myGen do
@@ -242,14 +225,11 @@ _G.CWSNAP = { conn = snapConn }
 Lib:Category("VISUALS")
 local visuals = win:Tab("Visuals", "eye")
 local esp = visuals:Section("ESP", "Left", "boxes, tracers, distance")
-esp:Label(function() return "Status: " .. CWmsg end)
 local vehT = esp:Toggle("Vehicle ESP", false, function(v)
 vehESP = v
-if not v then setStatus("vehicle ESP off") end
 end)
 local plrT = esp:Toggle("Player distance ESP", false, function(v)
 playerESP = v
-setStatus(v and "player ESP on" or "player ESP off")
 end)
 _G.CWPPOOL = {}
 local cwPool, cwCache = _G.CWPPOOL, {}
@@ -405,10 +385,8 @@ end
 end
 end
 vehTargets = out
-if #out ~= lastVehCount then lastVehCount = #out setStatus("vehicles tracked: " .. #out) end
 else
 vehTargets = {}
-lastVehCount = -1
 end
 task.wait(0.5)
 end
@@ -461,5 +439,5 @@ end
 end)
 _G.CWESP = { conn = vconn, pool = vpool }
 _G.CWINS = { win = win }
-Lib:Notify("Cold War", "v7.7 ready", 4, "success")
-print("Cold War x INS v7.7 ready.")
+Lib:Notify("Cold War", "v7.7.2 ready", 4, "success")
+print("Cold War x INS v7.7.2 ready.")
